@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROMAZ Studio - Editor de Clips de 8 Secundarios</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            gold: '#f39c12',
+                            goldDark: '#d68910',
+                            darkBg: '#0f0f11',
+                            cardBg: '#18181c',
+                            border: '#2a2a30'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #18181c;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a2a30;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f39c12;
+        }
+    </style>
+</head>
+<body class="bg-brand-darkBg text-gray-100 font-sans min-h-screen flex flex-col justify-between select-none">
+
+    <!-- Header -->
+    <header class="border-b border-brand-border bg-brand-cardBg px-6 py-4 flex items-center justify-between shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="bg-brand-gold text-black font-extrabold px-3 py-1 rounded-md text-xl tracking-wider">
+                PROMAZ
+            </div>
+            <h1 class="text-xl font-bold tracking-tight text-white hidden sm:block">AI Video Stitcher <span class="text-xs font-normal text-brand-gold bg-brand-gold/10 px-2 py-0.5 rounded border border-brand-gold/30">8s Seamless Editor</span></h1>
+        </div>
+        <div class="flex items-center space-x-2 text-xs text-gray-400">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>WebAudio API + HTML5 Canvas Active</span>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- Left Column: Preview Canvas & Playback Controls -->
+        <section class="lg:col-span-7 flex flex-col space-y-4">
+            <div class="bg-brand-cardBg rounded-xl p-4 border border-brand-border shadow-xl flex flex-col items-center">
+                
+                <!-- Canvas Display Frame -->
+                <div class="relative w-full aspect-[9/16] max-h-[520px] bg-black rounded-lg overflow-hidden flex items-center justify-center border border-brand-border/60 shadow-inner group">
+                    <canvas id="previewCanvas" width="720" height="1280" class="w-full h-full object-contain"></canvas>
+                    
+                    <!-- Empty State Overlay -->
+                    <div id="emptyCanvasOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-gray-400 p-6 text-center space-y-3">
+                        <i class="fa-solid font-sharp fa-film text-5xl text-brand-gold opacity-60"></i>
+                        <p class="text-sm font-medium">Sube tus clips de 8 segundos para comenzar</p>
+                        <p class="text-xs text-gray-500 max-w-xs">El motor procesará la transición suave de video y audio en tiempo real.</p>
+                    </div>
+
+                    <!-- Export Recording Banner -->
+                    <div id="recordingBanner" class="hidden absolute top-4 left-4 right-4 bg-red-600/90 backdrop-blur-md text-white text-xs font-semibold py-2 px-4 rounded-lg flex items-center justify-between shadow-lg animate-pulse z-20">
+                        <span class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-white"></span>
+                            <span>Procesando y Exportando Video Final...</span>
+                        </span>
+                        <span id="exportProgress">0%</span>
+                    </div>
+                </div>
+
+                <!-- Playback Control Bar -->
+                <div class="w-full mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 bg-brand-darkBg p-3 rounded-lg border border-brand-border">
+                    <div class="flex items-center space-x-2 w-full sm:w-auto justify-center">
+                        <button id="btnPlay" onclick="startPlayback(false)" class="flex-1 sm:flex-initial bg-brand-gold hover:bg-brand-goldDark text-black font-bold px-5 py-2.5 rounded-lg transition-all flex items-center justify-center space-x-2 text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-play"></i>
+                            <span>Previsualizar</span>
+                        </button>
+                        <button id="btnStop" onclick="stopPlayback()" disabled class="bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold px-4 py-2.5 rounded-lg transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-square"></i>
+                        </button>
+                    </div>
+
+                    <button id="btnExport" onclick="startPlayback(true)" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-lg transition-all flex items-center justify-center space-x-2 text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Exportar Video Unificado</span>
+                    </button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Right Column: Clip List & Settings -->
+        <section class="lg:col-span-5 flex flex-col space-y-5">
+            
+            <!-- Upload Box -->
+            <div class="bg-brand-cardBg rounded-xl p-5 border border-brand-border shadow-xl">
+                <h2 class="text-sm font-bold text-brand-gold uppercase tracking-wider mb-3 flex items-center justify-between">
+                    <span>1. Cargar Fracciones (Clips 8s)</span>
+                    <i class="fa-solid fa-folder-plus text-gray-400"></i>
+                </h2>
+                <label for="clipInput" class="border-2 border-dashed border-brand-border hover:border-brand-gold/60 bg-brand-darkBg/50 hover:bg-brand-darkBg transition-all rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer group">
+                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-gray-400 group-hover:text-brand-gold transition-colors mb-2"></i>
+                    <span class="text-xs font-semibold text-gray-300 group-hover:text-white">Haz clic o arrastra tus videos MP4</span>
+                    <span class="text-[10px] text-gray-500 mt-1">Soporta múltiples archivos de video</span>
+                    <input type="file" id="clipInput" accept="video/*" multiple class="hidden" onchange="handleClipUpload(this.files)">
+                </label>
+            </div>
+
+            <!-- Clip Sequence & Management -->
+            <div class="bg-brand-cardBg rounded-xl p-5 border border-brand-border shadow-xl flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-bold text-brand-gold uppercase tracking-wider">
+                        2. Secuencia de Clips (<span id="clipCount">0</span>)
+                    </h2>
+                    <button onclick="clearAllClips()" class="text-xs text-gray-500 hover:text-red-400 transition-colors">Limpiar todo</button>
+                </div>
+
+                <!-- Dynamic Clips List -->
+                <div id="clipsList" class="flex-1 space-y-2 overflow-y-auto max-h-[220px] pr-1 my-1">
+                    <div class="text-center py-8 text-xs text-gray-500 italic">
+                        No hay clips cargados.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transition & Audio Options -->
+            <div class="bg-brand-cardBg rounded-xl p-5 border border-brand-border shadow-xl space-y-4">
+                <h2 class="text-sm font-bold text-brand-gold uppercase tracking-wider border-b border-brand-border/60 pb-2">
+                    3. Ajustes de Transición y Audio
+                </h2>
+
+                <!-- Transition Selector -->
+                <div class="space-y-1.5">
+                    <label for="transitionSelect" class="text-xs text-gray-300 font-medium flex items-center justify-between">
+                        <span>Efecto de Transición Visual:</span>
+                        <span class="text-[10px] text-gray-500">Duración: 0.8s</span>
+                    </label>
+                    <select id="transitionSelect" class="w-full bg-brand-darkBg text-xs text-white border border-brand-border rounded-lg p-2.5 focus:border-brand-gold focus:outline-none">
+                        <option value="crossfade">Crossfade (Fundido Suave Sincronizado)</option>
+                        <option value="wipe">Wipe Lateral Rápido</option>
+                        <option value="zoom">Zoom In / Zoom Out</option>
+                        <option value="cut">Corte Directo Límite</option>
+                    </select>
+                </div>
+
+                <!-- Background Music Option -->
+                <div class="space-y-2 pt-1 border-t border-brand-border/40">
+                    <label class="text-xs text-gray-300 font-medium flex items-center justify-between">
+                        <span>Música de Fondo Unificada (Opcional):</span>
+                        <i class="fa-solid fa-music text-brand-gold"></i>
+                    </label>
+                    
+                    <div id="bgMusicContainer" class="flex items-center space-x-2">
+                        <label for="bgMusicInput" class="flex-1 bg-brand-darkBg hover:bg-brand-border/40 text-gray-300 text-xs py-2 px-3 rounded-lg border border-brand-border cursor-pointer flex items-center justify-between transition-all">
+                            <span id="bgMusicLabel" class="truncate">Seleccionar pista MP3/WAV</span>
+                            <i class="fa-solid fa-paperclip text-gray-500 text-xs"></i>
+                        </label>
+                        <input type="file" id="bgMusicInput" accept="audio/*" class="hidden" onchange="handleBgMusicUpload(this.files[0])">
+                        <button id="btnRemoveMusic" onclick="removeBgMusic()" class="hidden bg-red-900/40 hover:bg-red-800 text-red-300 p-2 rounded-lg text-xs border border-red-700/50">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+
+                    <!-- Volume Mix Slider -->
+                    <div id="volumeMixContainer" class="hidden pt-2 space-y-1">
+                        <div class="flex justify-between text-[11px] text-gray-400">
+                            <span>Volumen Música:</span>
+                            <span id="bgVolVal">30%</span>
+                        </div>
+                        <input type="range" id="bgVolume" min="0" max="1" step="0.05" value="0.3" class="w-full accent-brand-gold h-1 bg-brand-border rounded-lg cursor-pointer" oninput="document.getElementById('bgVolVal').innerText = Math.round(this.value*100) + '%'">
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-brand-border bg-brand-cardBg/50 py-3 text-center text-xs text-gray-500">
+        PROMAZ Studio Video Engine &copy; Engine Powered by WebAudio & Canvas MediaRecorder.
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Global Editor State
+        let clips = []; // Array of clip objects: { id, file, url, videoEl }
+        let bgMusic = null; // { file, url, audioEl }
+        let isPlaying = false;
+        let isExporting = false;
+        let animationFrameId = null;
+
+        // Web Audio Context & Nodes
+        let audioCtx = null;
+        let bgAudioSourceNode = null;
+        let bgGainNode = null;
+        let masterDestination = null;
+
+        // Canvas & Player
+        const canvas = document.getElementById('previewCanvas');
+        const ctx = canvas.getContext('2d');
+        const TRANSITION_DURATION = 0.8; // Seconds
+
+        // MediaRecorder State
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        // Initialize Audio Context lazily on user interaction
+        function initAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Handle File Uploads
+        function handleClipUpload(files) {
+            initAudioContext();
+            for (let file of files) {
+                if (!file.type.startsWith('video/')) continue;
+
+                const url = URL.createObjectURL(file);
+                const videoEl = document.createElement('video');
+                videoEl.src = url;
+                videoEl.crossOrigin = "anonymous";
+                videoEl.playsInline = true;
+                videoEl.muted = false; // We connect audio via WebAudio API or Canvas capture
+
+                const clipObj = {
+                    id: 'clip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                    name: file.name,
+                    url: url,
+                    file: file,
+                    videoEl: videoEl,
+                    audioSourceNode: null,
+                    gainNode: null
+                };
+
+                clips.push(clipObj);
+            }
+            updateClipsUI();
+            checkReadyState();
+        }
+
+        // Handle BG Music Upload
+        function handleBgMusicUpload(file) {
+            if (!file) return;
+            initAudioContext();
+
+            if (bgMusic && bgMusic.url) {
+                URL.revokeObjectURL(bgMusic.url);
+            }
+
+            const url = URL.createObjectURL(file);
+            const audioEl = new Audio(url);
+            audioEl.loop = true;
+
+            bgMusic = {
+                file: file,
+                url: url,
+                audioEl: audioEl
+            };
+
+            document.getElementById('bgMusicLabel').innerText = file.name;
+            document.getElementById('btnRemoveMusic').classList.remove('hidden');
+            document.getElementById('volumeMixContainer').classList.remove('hidden');
+        }
+
+        function removeBgMusic() {
+            if (bgMusic) {
+                bgMusic.audioEl.pause();
+                URL.revokeObjectURL(bgMusic.url);
+                bgMusic = null;
+            }
+            document.getElementById('bgMusicLabel').innerText = 'Seleccionar pista MP3/WAV';
+            document.getElementById('btnRemoveMusic').classList.add('hidden');
+            document.getElementById('volumeMixContainer').classList.add('hidden');
+            document.getElementById('bgMusicInput').value = '';
+        }
+
+        // Clip Sequence Management UI
+        function updateClipsUI() {
+            const container = document.getElementById('clipsList');
+            document.getElementById('clipCount').innerText = clips.length;
+
+            if (clips.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-xs text-gray-500 italic">No hay clips cargados.</div>`;
+                document.getElementById('emptyCanvasOverlay').classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('emptyCanvasOverlay').classList.add('hidden');
+            container.innerHTML = '';
+
+            clips.forEach((clip, idx) => {
+                const card = document.createElement('div');
+                card.className = "flex items-center justify-between bg-brand-darkBg p-2.5 rounded-lg border border-brand-border text-xs group hover:border-brand-gold/50 transition-all";
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3 overflow-hidden">
+                        <span class="font-bold text-brand-gold w-5 text-center">#${idx + 1}</span>
+                        <span class="truncate font-medium text-gray-200 max-w-[150px] sm:max-w-[180px]">${clip.name}</span>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <button onclick="moveClip(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="p-1 px-2 text-gray-400 hover:text-white disabled:opacity-30">
+                            <i class="fa-solid fa-chevron-up"></i>
+                        </button>
+                        <button onclick="moveClip(${idx}, 1)" ${idx === clips.length - 1 ? 'disabled' : ''} class="p-1 px-2 text-gray-400 hover:text-white disabled:opacity-30">
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                        <button onclick="deleteClip(${idx})" class="p-1 px-2 text-red-400 hover:text-red-300">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function moveClip(index, direction) {
+            const target = index + direction;
+            if (target < 0 || target >= clips.length) return;
+            const temp = clips[index];
+            clips[index] = clips[target];
+            clips[target] = temp;
+            updateClipsUI();
+        }
+
+        function deleteClip(index) {
+            URL.revokeObjectURL(clips[index].url);
+            clips.splice(index, 1);
+            updateClipsUI();
+            checkReadyState();
+        }
+
+        function clearAllClips() {
+            clips.forEach(clip => URL.revokeObjectURL(clip.url));
+            clips = [];
+            updateClipsUI();
+            checkReadyState();
+        }
+
+        function checkReadyState() {
+            const hasClips = clips.length > 0;
+            document.getElementById('btnPlay').disabled = !hasClips;
+            document.getElementById('btnExport').disabled = !hasClips;
+        }
+
+        // Seamless Playback Engine (WebAudio + HTML5 Canvas Render Loop)
+        async function startPlayback(exportMode = false) {
+            if (clips.length === 0 || isPlaying) return;
+
+            initAudioContext();
+            isPlaying = true;
+            isExporting = exportMode;
+
+            document.getElementById('btnPlay').disabled = true;
+            document.getElementById('btnExport').disabled = true;
+            document.getElementById('btnStop').disabled = false;
+
+            if (isExporting) {
+                document.getElementById('recordingBanner').classList.remove('hidden');
+                setupMediaRecorder();
+            }
+
+            // Setup Master Destination for Recording / Audio Output
+            masterDestination = audioCtx.createMediaStreamDestination();
+
+            // Connect Background Music if present
+            if (bgMusic) {
+                if (!bgAudioSourceNode) {
+                    bgAudioSourceNode = audioCtx.createMediaElementSource(bgMusic.audioEl);
+                    bgGainNode = audioCtx.createGain();
+                    bgAudioSourceNode.connect(bgGainNode);
+                }
+                const vol = parseFloat(document.getElementById('bgVolume').value);
+                bgGainNode.gain.setValueAtTime(vol, audioCtx.currentTime);
+                bgGainNode.connect(audioCtx.destination);
+                bgGainNode.connect(masterDestination);
+
+                bgMusic.audioEl.currentTime = 0;
+                bgMusic.audioEl.play();
+            }
+
+            // Preload & setup videos
+            for (let clip of clips) {
+                clip.videoEl.currentTime = 0;
+                if (!clip.audioSourceNode) {
+                    try {
+                        clip.audioSourceNode = audioCtx.createMediaElementSource(clip.videoEl);
+                        clip.gainNode = audioCtx.createGain();
+                        clip.audioSourceNode.connect(clip.gainNode);
+                        clip.gainNode.connect(audioCtx.destination);
+                        clip.gainNode.connect(masterDestination);
+                    } catch (e) {
+                        console.warn("Audio source already connected or restricted:", e);
+                    }
+                }
+            }
+
+            let currentClipIdx = 0;
+            let transitionType = document.getElementById('transitionSelect').value;
+
+            // Start First Video
+            let activeClip = clips[currentClipIdx];
+            if (activeClip.gainNode) activeClip.gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+            await activeClip.videoEl.play();
+
+            let nextClipTriggered = false;
+
+            // Canvas Render Loop
+            function render() {
+                if (!isPlaying) return;
+
+                const currVideo = activeClip.videoEl;
+                const duration = currVideo.duration || 8;
+                const currentTime = currVideo.currentTime;
+                const timeRemaining = duration - currentTime;
+
+                // Check if transition needs to start
+                if (timeRemaining <= TRANSITION_DURATION && currentClipIdx + 1 < clips.length) {
+                    const nextClipIdx = currentClipIdx + 1;
+                    const nextClip = clips[nextClipIdx];
+                    const nextVideo = nextClip.videoEl;
+
+                    // Trigger Play for Next Video if not already playing
+                    if (!nextClipTriggered) {
+                        nextClipTriggered = true;
+                        nextVideo.currentTime = 0;
+                        if (nextClip.gainNode) {
+                            nextClip.gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                            nextClip.gainNode.gain.linearRampToValueAtTime(1, audioCtx.currentTime + TRANSITION_DURATION);
+                        }
+                        if (activeClip.gainNode) {
+                            activeClip.gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+                            activeClip.gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + TRANSITION_DURATION);
+                        }
+                        nextVideo.play();
+                    }
+
+                    // Progress 0 to 1 during transition window
+                    const progress = Math.min(1, Math.max(0, (TRANSITION_DURATION - timeRemaining) / TRANSITION_DURATION));
+
+                    // Draw Transition on Canvas
+                    drawTransition(currVideo, nextVideo, progress, transitionType);
+
+                } else {
+                    // Normal Frame Rendering
+                    drawFrame(currVideo);
+                }
+
+                // Check for current clip finish
+                if (currVideo.ended || currentTime >= duration - 0.05) {
+                    if (currentClipIdx + 1 < clips.length) {
+                        currentClipIdx++;
+                        activeClip = clips[currentClipIdx];
+                        nextClipTriggered = false;
+                    } else {
+                        // Sequence Finished
+                        stopPlayback();
+                        return;
+                    }
+                }
+
+                // Update Export Progress Status
+                if (isExporting) {
+                    let totalDuration = clips.length * 8;
+                    let currentProgressTime = (currentClipIdx * 8) + currentTime;
+                    let pct = Math.min(100, Math.round((currentProgressTime / totalDuration) * 100));
+                    document.getElementById('exportProgress').innerText = pct + '%';
+                }
+
+                animationFrameId = requestAnimationFrame(render);
+            }
+
+            animationFrameId = requestAnimationFrame(render);
+        }
+
+        // Draw standard frame
+        function drawFrame(video) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
+
+        // Draw visual transitions on Canvas
+        function drawTransition(videoA, videoB, progress, type) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (type === 'crossfade') {
+                ctx.globalAlpha = 1;
+                ctx.drawImage(videoA, 0, 0, canvas.width, canvas.height);
+                ctx.globalAlpha = progress;
+                ctx.drawImage(videoB, 0, 0, canvas.width, canvas.height);
+                ctx.globalAlpha = 1;
+            } else if (type === 'wipe') {
+                ctx.drawImage(videoA, 0, 0, canvas.width, canvas.height);
+                const offsetX = canvas.width * progress;
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 0, offsetX, canvas.height);
+                ctx.clip();
+                ctx.drawImage(videoB, 0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            } else if (type === 'zoom') {
+                ctx.save();
+                const scaleA = 1 + (progress * 0.15);
+                ctx.globalAlpha = 1 - progress;
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.scale(scaleA, scaleA);
+                ctx.drawImage(videoA, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
+                ctx.restore();
+
+                ctx.save();
+                const scaleB = 1.15 - (progress * 0.15);
+                ctx.globalAlpha = progress;
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.scale(scaleB, scaleB);
+                ctx.drawImage(videoB, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
+                ctx.restore();
+            } else {
+                // Hard Cut fallback
+                if (progress < 0.5) {
+                    ctx.drawImage(videoA, 0, 0, canvas.width, canvas.height);
+                } else {
+                    ctx.drawImage(videoB, 0, 0, canvas.width, canvas.height);
+                }
+            }
+        }
+
+        // Stop Playback
+        function stopPlayback() {
+            isPlaying = false;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+            clips.forEach(clip => {
+                clip.videoEl.pause();
+                clip.videoEl.currentTime = 0;
+            });
+
+            if (bgMusic) {
+                bgMusic.audioEl.pause();
+                bgMusic.audioEl.currentTime = 0;
+            }
+
+            if (isExporting && mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+
+            document.getElementById('btnPlay').disabled = false;
+            document.getElementById('btnExport').disabled = false;
+            document.getElementById('btnStop').disabled = true;
+            document.getElementById('recordingBanner').classList.add('hidden');
+            isExporting = false;
+        }
+
+        // Export & Download Setup (MediaRecorder with WebAudio Stream + Canvas Stream)
+        function setupMediaRecorder() {
+            recordedChunks = [];
+
+            // Combine Canvas Video Track + WebAudio Destination Audio Track
+            const canvasStream = canvas.captureStream(30); // 30 FPS
+            const audioStream = masterDestination.stream;
+
+            const combinedStream = new MediaStream([
+                ...canvasStream.getVideoTracks(),
+                ...audioStream.getAudioTracks()
+            ]);
+
+            let options = { mimeType: 'video/webm;codecs=vp9,opus' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options = { mimeType: 'video/webm' };
+            }
+
+            try {
+                mediaRecorder = new MediaRecorder(combinedStream, options);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        recordedChunks.push(e.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `PROMAZ_Video_Final_${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 100);
+                };
+
+                mediaRecorder.start();
+            } catch (err) {
+                console.error("Error creating MediaRecorder:", err);
+                alert("No se pudo iniciar la exportación automática en este navegador.");
+            }
+        }
+    </script>
+</body>
+</html>
+```
